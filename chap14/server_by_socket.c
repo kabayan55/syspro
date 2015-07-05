@@ -1,0 +1,62 @@
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define BUFFER_SIZE 256
+
+int main(int argc, char *argv[]) {
+ unsigned short port; 
+ int srcSocket;  // 自分
+ int dstSocket;  // 相手
+
+ /* sockaddr_in 構造体 */
+ struct sockaddr_in srcAddr;
+ struct sockaddr_in dstAddr;
+ unsigned int dstAddrSize = sizeof(dstAddr);
+
+ /* 各種パラメータ */
+ int numrcv;
+ char buffer[BUFFER_SIZE];
+
+ if(argc!=2){
+   fprintf(stderr,"Usage: %%server <port>\n");
+   exit(EXIT_FAILURE);
+ }
+
+ // ソケットの生成
+ srcSocket = socket(PF_INET, SOCK_STREAM, 0);  
+ 
+ //ポート番号等の情報と統合（バインド）
+  port=(unsigned short)atoi(argv[1]);
+ // sockaddr_in 構造体のセット
+ memset(&srcAddr, 0, sizeof(srcAddr));
+ srcAddr.sin_port = htons(port);
+ srcAddr.sin_family = PF_INET;
+ srcAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+ printf("Address = %s, Port = %u\n",inet_ntoa(srcAddr.sin_addr),port);
+ bind(srcSocket, (struct sockaddr *) &srcAddr, sizeof(srcAddr));  
+
+ // 接続の許可
+ listen(srcSocket, 1); 
+
+ printf("Waiting for connection ...\n");
+ dstSocket = accept(srcSocket, (struct sockaddr *) &dstAddr, &dstAddrSize);// 接続の受付
+ printf("Connected from %s\n", inet_ntoa(dstAddr.sin_addr));
+
+ // パケット受信 
+ while(1) { 
+   memset(buffer,0,BUFFER_SIZE);
+   numrcv = recv(dstSocket, buffer, BUFFER_SIZE, 0); 
+   if(numrcv == 0 || numrcv == -1) {
+     int status = close(dstSocket); break;
+   }
+   printf("received: %s\n", buffer);
+   send(dstSocket, buffer, numrcv, 0); 
+   if(strncmp(buffer,"quit",4)==0) break;
+ }
+}
